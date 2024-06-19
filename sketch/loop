@@ -1,0 +1,139 @@
+void loop() {
+
+  /*
+   * // runTime es una función booleana en ClockFunc.h que devuelve true si la caja está en horario de funcionamiento.
+   * Esta función se podría llamar más veces dentro del loop() y permitir que aunque la caja no envie datos por no ser su horario de funcionamiento siga mostrando los colores de estado
+   * y poder configurarle esta opción.
+   * 
+   */
+  if(runTime()){ 
+    
+    BOX.runUP(); //pone en modo "funcionando" el dispositivo
+    
+    if(!loop_start){
+      Serial.print("NONOISE STARTED: ");
+      printTime();
+      loop_start = true;
+    }
+
+    if(prevStateControl==false){ // Si el dispositivo se acaba de encender boxMode = wakeup, si no el boxMode a su valor de configuración.
+        boxMode = "wakeup";
+    }else{
+      boxMode = BOX.getBoxMode(boxModeConf);
+    }
+    
+    prevStateControl = true; //Ya no vuelve a estar "wakeup" hasta que se apague el dispositivo y se vuelva a encender
+
+      
+    
+    
+    
+    if(millis() - previousMillisSensor >= intervalSensor) {
+      BOX.runUP();
+     
+    
+    int sensor = BOX.getStatusValue(); // El Modo de la NONOISE 0=silence, 1=moderate, 2=warning, 3=danger
+        int analog = BOX.getAnalog(); // El valor analógico de la lectura
+        double voltage = BOX.getVoltage(); // El voltage leído
+        double db = BOX.getDB(); // Los decibelios (dB)
+        double db_spl = BOX.getDBSPL(); // Los dB SPL ( Sound pressure level )
+        
+        long timer = millis(); 
+      if(doc.size()<=2){
+          doc.add(jsonSensor.buildJson(sensor, analog, voltage, db, db_spl, timer, boxMode));
+        //delay(6000);
+        }     
+      previousMillisSensor = millis();
+    }
+    
+    if ((WiFi.status() == WL_CONNECTED) || (WiFi.status() == 3))
+    {
+      MDNS.update(); 
+      //server.handleClient();
+  
+      if(millis() - previousMillis >= interval) { //Mantiene a la escucha el servidor http,refresca cada "interval"
+        //server.handleClient();
+      //     WiFi.disconnect();                    
+      //     server_start();
+        previousMillis=millis();
+      }
+      delay(1); 
+
+
+      /*************
+       * 
+       * Este bloque que sigue lee los datos del dispositivo i los prepara para envirlos a la API externa.
+       * intervalApi = 15 segundos, intervalo para cada envío de datos.
+       * 
+       */
+       
+      if(millis() - previousMillisApi >= intervalApi) {  // Comprueba si toca hacer llamada a la API intervalApi = 15 segundos.
+
+        //rootJsonSensor.clear();
+        String json;
+        serializeJson(doc, json);
+        Serial.println(json);
+        Serial.println(sizeof(doc));
+        Serial.print("SIZE JSON: ");
+        Serial.println(doc.memoryUsage());
+        Serial.println(doc.size()); 
+        
+        renewToken(json);
+
+        doc.clear();
+        
+        /*
+        int sensor = BOX.getStatusValue(); // El Modo de la NONOISE 0=silence, 1=moderate, 2=warning, 3=danger
+        int analog = BOX.getAnalog(); // El valor analógico de la lectura
+        double voltage = BOX.getVoltage(); // El voltage leído
+        double db = BOX.getDB(); // Los decibelios (dB)
+        double db_spl = BOX.getDBSPL(); // Los dB SPL ( Sound pressure level )
+        
+        long timer = millis(); 
+        String ip = WiFi.localIP().toString().c_str(); // La ip asignada por el Punto de acceso WiFi
+        */
+         // Función que genera un nuevo token cifrado con las lecturas
+        Serial.println(apiToken);
+        boxApi.sendSensorData(apiKey, apiToken);
+        //int ret = ESP.getFreeHeap();
+        //Serial.println("hEAP" + String(ret));
+        //boxApi.getMe();
+
+        Serial.println(WiFi.status());
+        WiFi.printDiag(Serial);
+        
+        //Serial.print("DATA: ");
+        //Serial.println(apiToken);
+        //bool testApi = ApiRequest(apiKey, apiToken); //Llamada y envío de la función ApiRequest en API.hpp
+        //delay(2000); 
+        BOX.runUP();
+        previousMillisApi=millis();  //Guardo el tiempo en este punto para hacer el cálculo en el siguiente ciclo del loop() y repetir la llamada a la API o no.
+      }
+    }else //Si no hay conexión WiFi
+    {
+      Serial.print("WiFi NO CONECTADA");
+
+      // Realizo diez intentos para reconectar
+      while(wifi_intents<=10){
+        wifi_intents++;
+        Serial.print("WIFI Try: ");
+        Serial.println(wifi_intents);
+        delay(3000);
+      }
+
+      // Si no se conecta de nuevo al WiFi se pone en modo de configuración
+      Serial.println("Turning the HotSpot On");
+      startAPServer(); // Lanzo función startAPServer definida más abajo y que activa y pone a la escucha el servidor web interno, el Access Point para config del dispositivo
+      setupAP(); //Configuro Access Point
+      
+    }
+  }else{
+    
+    if(millis() - previousIntervalBoxWaiting >= intervalBoxWaiting) { 
+      printTime(); //Print la hora por el serial (para debuguear).
+      BOX.runOFF(); //Aviso luminoso cuando la caja está en espera de ponerse en el modo configurado de funcionamiento horario. Aviso cada 30 segundos
+      previousIntervalBoxWaiting = millis();
+    }
+  }
+
+}
