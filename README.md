@@ -113,4 +113,4 @@ Las partes importantes del código están comentadas. Hacemos una descripción g
 ```
 ## NOTAS
 
-El desarrollo de esta idea se detuvo en el momento que se intentó implementar SSL. El uso conjunto de la librería JWT en la placa y la inclusión de las librerías necesarias HTTPS, así como los certificados para la conexión SSL, creaban desboaramientos de memoria difíciles de manejar. Mi conclusión es que si se usa SSL es mejor no cargar JWT y usar el propio certificado para cifrar los datos y para ello se debe modificar el código.
+El desarrollo de esta idea se detuvo en el momento que se intentó implementar SSL. El uso conjunto de la librería JWT en la placa y la inclusión de las librerías necesarias HTTPS, así como los certificados para la conexión SSL, creaban desboaramientos de memoria difíciles de manejar. Mi conclusión es que si se usa SSL es mejor no cargar JWT y usar el propio certificado para cifrar los datos y para ello se debe modificar el código. O también puedes substituir la ESP8266 (2Mb Ram) por una ESP32 (4Mb Ram)
